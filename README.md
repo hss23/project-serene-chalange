@@ -8,8 +8,10 @@ A small full-stack app for a fictional mentorship programme:
 
 > All people, organisations and documents are fictional. The app gives no medical, legal or financial advice.
 
-- **Live app:** `<frontend URL, add after deploying>` · **API:** `<backend URL>/api/health`
-- **Reviewer access:** open registration is enabled, or use the test account `<reviewer@example.com / add password after creating it>`
+- **Live app:** https://project-serene-chalange.vercel.app
+- **API:** https://project-serene-chalange.onrender.com ([health check](https://project-serene-chalange.onrender.com/api/health))
+- **Reviewer access:** registration is open. Create an account on the [sign-up page](https://project-serene-chalange.vercel.app/signup) with any email and a password of 8+ characters (no email verification), or use Google sign-in.
+- **Note:** the API runs on Render's free tier and sleeps after ~15 minutes idle. If the first request is slow or shows "Couldn't reach the server", wait 30–60 seconds and retry.
 
 ---
 
@@ -178,14 +180,20 @@ Deploy the Firestore rules with `npx firebase-tools deploy --only firestore --pr
 
 ### 3. Deploy
 **Backend → Render**
-1. *New → Blueprint*, select this repo. Render reads `render.yaml` (root directory `backend`, build `npm ci && npm run build`, start `npm start`, health check `/api/health`).
-2. Fill in the secret env vars. Paste `FIREBASE_ADMIN_PRIVATE_KEY` as-is (literal `\n` sequences are converted). Set `CORS_ORIGINS` to the Vercel URL.
+1. *New → Blueprint*, select this repo. Render reads `render.yaml` (root directory `backend`, build `npm ci && npm run build`, start `npm start`, health check `/api/health`, Node 22).
+   - If you create a plain *Web Service* instead, set these by hand. Otherwise Render runs `npm ci` at the repo root and fails with "can only install with an existing package-lock.json":
+     - **Root Directory** `backend`
+     - **Build** `npm ci && npm run build`
+     - **Start** `npm start`
+     - **Health check** `/api/health`
+     - env `NODE_VERSION=22`
+2. Fill in the secret env vars. Paste `FIREBASE_ADMIN_PRIVATE_KEY` without surrounding quotes (literal `\n` sequences are converted). Set `CORS_ORIGINS` to the Vercel URL, comma-separated with any other allowed origins.
 3. After the first deploy, open `https://<service>.onrender.com/api/health`. It should return `{"ok":true,...}`.
 
 **Frontend → Vercel**
 1. Import the repo and set **Root Directory = `frontend`**.
 2. Add the `NEXT_PUBLIC_FIREBASE_*` vars and `NEXT_PUBLIC_API_URL=https://<service>.onrender.com`.
-3. Deploy, then add the Vercel domain to Firebase authorized domains and to the backend's `CORS_ORIGINS`.
+3. Deploy, then add the Vercel domain to Firebase *Authentication → Settings → Authorized domains* (needed for Google sign-in) and to the backend's `CORS_ORIGINS`.
 
 **Keep-alive**: in GitHub, set the repository variable `API_URL` to the Render URL so the scheduled workflow pings it.
 
