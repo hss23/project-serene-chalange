@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Private per-user data only. Default deny everywhere.
+// Server-written collections (matchHistory, chat messages, meta) are read-only for clients:
+// the Next.js API writes them with the Admin SDK after verifying the user's ID token.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function validSavedMatch(mentorId, d) {
+      return d.keys().hasAll(['mentorId', 'mentorName', 'score', 'savedAt'])
+        && d.keys().hasOnly(['mentorId', 'mentorName', 'headline', 'score', 'reasons', 'menteeId', 'menteeName', 'savedAt'])
+        && d.mentorId == mentorId
+        && d.mentorName is string && d.mentorName.size() <= 100
+        && (!('headline' in d) || (d.headline is string && d.headline.size() <= 200))
+        && d.score is int && d.score >= 0 && d.score <= 100
+        && (!('reasons' in d) || (d.reasons is list && d.reasons.size() <= 6))
+        && (!('menteeId' in d) || (d.menteeId is string && d.menteeId.size() <= 40))
+        && (!('menteeName' in d) || (d.menteeName is string && d.menteeName.size() <= 100))
+        && d.savedAt == request.time;
+    }
+
+    function validPreferences(d) {
+      return d.keys().hasOnly(['lastMenteeId', 'showBreakdown', 'updatedAt'])
+        && (!('lastMenteeId' in d) || (d.lastMenteeId is string && d.lastMenteeId.size() <= 40))
+        && (!('showBreakdown' in d) || d.showBreakdown is bool)
+        && (!('updatedAt' in d) || d.updatedAt == request.time);
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+
+      match /preferences/{docId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && docId == 'settings' && validPreferences(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
+
+      match /savedMatches/{mentorId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && mentorId.size() <= 40 && validSavedMatch(mentorId, request.resource.data);
+      }
+
+      match /matchHistory/{entryId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /chatSessions/{sessionId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+
+        match /messages/{messageId} {
+          allow read: if isOwner(uid);
+          allow write: if false;
+        }
+      }
+
+      match /meta/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
+  }
+}
