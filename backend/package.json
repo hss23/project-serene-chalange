@@ -1,0 +1,39 @@
+{
+  "name": "serene-mentors-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express API for Serene Mentors: Firebase-verified auth, Supabase Postgres + pgvector, Gemini RAG, mentor matching.",
+  "main": "dist/src/server.js",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/src/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "seed:sql": "tsx scripts/gen-seed-sql.ts",
+    "ingest": "tsx scripts/ingest.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.27.0",
+    "@supabase/supabase-js": "^2.109.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "firebase-admin": "^13.10.0",
+    "helmet": "^8.3.0",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.19.43",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
