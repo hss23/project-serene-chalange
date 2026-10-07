@@ -154,7 +154,7 @@ export function scoreComponents(mentee: MenteeProfile, mentor: MentorProfile): C
       ok ? 1 : mentor.years_experience / mentee.desired_min_years,
       ok
         ? `${mentor.years_experience} years of experience (wanted ${mentee.desired_min_years}+)`
-        : `${mentor.years_experience} years of experience (you wanted ${mentee.desired_min_years}+)`,
+        : `${mentor.years_experience} years of experience (${mentee.desired_min_years}+ wanted)`,
     );
   }
 
@@ -171,7 +171,7 @@ export function scoreComponents(mentee: MenteeProfile, mentor: MentorProfile): C
   const industry = make(
     "industry",
     sameIndustry ? 1 : 0,
-    sameIndustry ? `Both work in ${mentor.industry}` : `Works in ${mentor.industry} (you: ${mentee.industry})`,
+    sameIndustry ? `Both work in ${mentor.industry}` : `Different industries (${mentor.industry} vs ${mentee.industry})`,
   );
 
   // 6. Format + language: half for a compatible session format, half for a shared language.
@@ -181,8 +181,8 @@ export function scoreComponents(mentee: MenteeProfile, mentor: MentorProfile): C
   const langSpecified = mentee.languages.length > 0;
   const lang = !langSpecified || sharedLangs.length > 0 ? 1 : 0;
   const fmtLabel = mentor.format.replace("_", "-");
-  const fmtText = fmt === 1 ? `${fmtLabel[0].toUpperCase()}${fmtLabel.slice(1)} sessions suit you` : fmt > 0 ? "Remote sessions possible" : "Session format doesn't match";
-  const langText = !langSpecified ? "" : sharedLangs.length ? `you both speak ${listJoin(sharedLangs)}` : "no shared language";
+  const fmtText = fmt === 1 ? `${fmtLabel[0].toUpperCase()}${fmtLabel.slice(1)} sessions work for both` : fmt > 0 ? "Remote sessions possible" : "Session format doesn't match";
+  const langText = !langSpecified ? "" : sharedLangs.length ? `both speak ${listJoin(sharedLangs)}` : "no shared language";
   const format = make("format", 0.5 * fmt + 0.5 * lang, langText ? `${fmtText}; ${langText}` : fmtText);
 
   return [skills, availability, experience, timezone, industry, format];
@@ -224,5 +224,42 @@ export function rankMentors(mentee: MenteeProfile, mentors: MentorProfile[], lim
   return mentors
     .map((m) => scoreMatch(mentee, m))
     .sort((a, b) => b.score - a.score || a.mentorId.localeCompare(b.mentorId))
+    .slice(0, n);
+}
+
+export interface StudentMatch {
+  menteeId: string;
+  menteeName: string;
+  careerStage: string;
+  goalSummary: string;
+  score: number;
+  weak: boolean;
+  breakdown: ComponentScore[];
+  reasons: string[];
+  caveats: string[];
+}
+
+/**
+ * Reverse view for teachers: rank students by how well this mentor fits each of them.
+ * Uses the same scorer (from the student's perspective), so scores agree with the student view.
+ */
+export function rankMenteesForMentor(mentor: MentorProfile, mentees: MenteeProfile[], limit = 5): StudentMatch[] {
+  const n = Math.max(1, Math.min(limit, 10));
+  return mentees
+    .map((me) => {
+      const r = scoreMatch(me, mentor);
+      return {
+        menteeId: me.id,
+        menteeName: me.name,
+        careerStage: me.career_stage,
+        goalSummary: me.goal_summary,
+        score: r.score,
+        weak: r.weak,
+        breakdown: r.breakdown,
+        reasons: r.reasons,
+        caveats: r.caveats,
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.menteeId.localeCompare(b.menteeId))
     .slice(0, n);
 }

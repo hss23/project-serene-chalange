@@ -14,7 +14,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed:sql": "tsx scripts/gen-seed-sql.ts",
-    "ingest": "tsx scripts/ingest.ts"
+    "ingest": "tsx scripts/ingest.ts",
+    "seed:users": "tsx scripts/seed-users.ts",
+    "db:migrate": "tsx scripts/db.ts",
+    "db:sql": "tsx scripts/db.ts sql"
   },
   "dependencies": {
     "@google/genai": "^2.27.0",
@@ -31,7 +34,9 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.43",
+    "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.2",
+    "pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
