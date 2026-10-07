@@ -2,6 +2,7 @@
 const MESSAGES: Record<string, string> = {
   "auth/email-already-in-use": "An account with this email already exists. Try signing in instead.",
   "auth/invalid-email": "That email address doesn't look right.",
+  "auth/missing-email": "Enter your email address.",
   "auth/weak-password": "Please choose a stronger password (at least 6 characters).",
   "auth/invalid-credential": "Incorrect email or password.",
   "auth/wrong-password": "Incorrect email or password.",

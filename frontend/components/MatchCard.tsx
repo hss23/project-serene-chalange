@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Bookmark, BookmarkCheck, Check, ChevronDown } from "lucide-react";
+import { AlertTriangle, Bookmark, BookmarkCheck, Check, ChevronDown, Clock, Handshake, Send, UserCheck } from "lucide-react";
 import type { MatchResult } from "@/lib/types";
 import { Avatar, Bar, ScoreRing } from "./ui";
 
@@ -10,11 +10,15 @@ export function MatchCard({
   result,
   saved,
   onToggleSave,
+  onRequest,
 }: {
   rank: number;
   result: MatchResult;
   saved: boolean;
-  onToggleSave: () => void;
+  /** Omitted when the viewer can't save (e.g. an admin viewing another student's matches). */
+  onToggleSave?: () => void;
+  /** Present only when mentorship requests are enabled and the viewer is a student. */
+  onRequest?: () => void;
 }) {
   const [open, setOpen] = useState(rank === 1);
   const confidence = result.weak ? "Weak match" : result.score >= 75 ? "Strong match" : "Good match";
@@ -45,6 +49,7 @@ export function MatchCard({
           <p className="truncate text-sm text-muted">{result.headline}</p>
         </div>
         <ScoreRing score={result.score} weak={result.weak} />
+        {onToggleSave && (
         <button
           onClick={onToggleSave}
           aria-pressed={saved}
@@ -56,7 +61,32 @@ export function MatchCard({
         >
           {saved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
         </button>
+        )}
       </div>
+
+      {onRequest && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-2/50 px-5 py-3 text-sm">
+          <span className="flex items-center gap-1.5 text-xs text-muted">
+            <Handshake className="h-3.5 w-3.5" />
+            {result.spotsLeft === undefined ? "" : result.spotsLeft > 0 ? `${result.spotsLeft} spot${result.spotsLeft === 1 ? "" : "s"} left` : "No spots left"}
+          </span>
+          {result.requestStatus === "accepted" ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-xs font-semibold text-success">
+              <UserCheck className="h-3.5 w-3.5" /> Your mentor
+            </span>
+          ) : result.requestStatus === "pending" ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-soft px-3 py-1 text-xs font-semibold text-warn">
+              <Clock className="h-3.5 w-3.5" /> Request sent
+            </span>
+          ) : result.spotsLeft === 0 ? (
+            <span className="text-xs font-medium text-subtle">Full</span>
+          ) : (
+            <button className="btn-primary px-3 py-1.5 text-xs" onClick={onRequest}>
+              <Send className="h-3.5 w-3.5" /> Request mentorship
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="border-t border-line px-5 py-4">
         <ul className="grid gap-2 text-sm sm:grid-cols-2">

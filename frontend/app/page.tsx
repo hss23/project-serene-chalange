@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ArrowRight, BookOpenCheck, Check, Lock, Scale, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { homePath } from "@/lib/roles";
 import { Avatar, Bar, ScoreRing } from "@/components/ui";
 
 const FEATURES = [
@@ -26,9 +27,9 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { n: "01", title: "Pick a mentee profile", body: "Choose from 12 fictional mentees with goals, availability and preferences." },
-  { n: "02", title: "See ranked mentors", body: "The top 5 of 30 mentors, each with a score, a breakdown and readable reasons." },
-  { n: "03", title: "Save and ask", body: "Save matches you like and ask the assistant how the programme works." },
+  { n: "01", title: "Sign up as a student or teacher", body: "Students describe their goals; teachers describe their skills. Both add availability and preferences." },
+  { n: "02", title: "Get ranked matches", body: "Students see their top teachers, and teachers see the students they fit best, each with a score and readable reasons." },
+  { n: "03", title: "Save and ask", body: "Save matches you like and ask the assistant how the programme works. Admins approve teachers and manage accounts." },
 ];
 
 function PreviewCard() {
@@ -68,12 +69,12 @@ function PreviewCard() {
 }
 
 export default function Home() {
-  const { user, loading } = useAuth();
+  const { user, loading, me } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user) router.replace("/dashboard");
-  }, [user, loading, router]);
+    if (!loading && user && me) router.replace(homePath(me));
+  }, [user, loading, me, router]);
 
   return (
     <div className="space-y-24 py-6 sm:py-10">

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { collection, limit, onSnapshot, orderBy, query, type Timestamp } from "firebase/firestore";
 import { ArrowRight, Bookmark, History, MessageSquareText, Sparkles, Users, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { Avatar, EmptyState, Skeleton } from "@/components/ui";
 import { clientDb } from "@/lib/firebase/client";
 
@@ -31,7 +32,12 @@ function StatCard({ href, icon: Icon, label, value, hint }: { href: string; icon
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { me } = useAuth();
+  return me?.user.role === "teacher" ? <TeacherDashboard /> : <StudentDashboard />;
+}
+
+function StudentDashboard() {
+  const { user, me } = useAuth();
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [chatCount, setChatCount] = useState<number | null>(null);
@@ -54,7 +60,7 @@ export default function DashboardPage() {
     return () => unsubs.forEach((u) => u());
   }, [user]);
 
-  const name = user?.displayName || user?.email?.split("@")[0];
+  const name = me?.user.displayName || user?.displayName || user?.email?.split("@")[0];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
@@ -67,11 +73,11 @@ export default function DashboardPage() {
         <p className="relative text-sm text-white/80">{greeting}</p>
         <h1 className="relative mt-1 text-3xl font-semibold tracking-tight">{name ? `Welcome back, ${name}` : "Welcome back"}</h1>
         <p className="relative mt-2 max-w-lg text-sm text-white/85">
-          Rank mentors for a mentee profile, keep the ones you like, and ask the assistant how the programme works.
+          See the teachers ranked for your goals, keep the ones you like, and ask the assistant how the programme works.
         </p>
         <div className="relative mt-6 flex flex-wrap gap-3">
           <Link href="/match" className="btn bg-white text-[#3f3fd1] shadow-sm hover:bg-white/90">
-            <Sparkles className="h-4 w-4" /> Find a mentor
+            <Sparkles className="h-4 w-4" /> See my matches
           </Link>
           <Link href="/chat" className="btn border border-white/30 bg-white/10 text-white hover:bg-white/20">
             <MessageSquareText className="h-4 w-4" /> Ask the assistant
@@ -80,7 +86,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <StatCard href="/mentors" icon={Users} label="Mentors available" value="30" hint="Browse" />
+        <StatCard href="/mentors" icon={Users} label="Teachers directory" value="Browse" hint="Open" />
         <StatCard href="/saved" icon={Bookmark} label="Saved matches" value={savedCount === null ? "–" : String(savedCount)} hint="View" />
         <StatCard href="/chat" icon={MessageSquareText} label="Assistant chats" value={chatCount === null ? "–" : String(chatCount)} hint="Open" />
       </section>

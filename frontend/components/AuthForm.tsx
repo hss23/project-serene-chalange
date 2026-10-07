@@ -15,21 +15,25 @@ import {
 import { clientAuth } from "@/lib/firebase/client";
 import { authErrorMessage } from "@/lib/firebase/errors";
 import { useAuth } from "./AuthProvider";
-import { ArrowRight, Check, KeyRound, Mail, Sparkles, User } from "lucide-react";
+import { ArrowRight, Check, GraduationCap, KeyRound, Mail, Presentation, Sparkles, User } from "lucide-react";
+import { homePath } from "@/lib/roles";
+import type { Role } from "@/lib/types";
 import { ErrorBanner, InfoBanner, Spinner } from "./ui";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
-  const { user, loading, configured } = useAuth();
+  const { user, loading, configured, me, setPendingRole } = useAuth();
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<Exclude<Role, "admin"> | null>(null);
 
+  // Once signed in and the account is loaded, go to the right place for the role.
   useEffect(() => {
-    if (!loading && user) router.replace("/dashboard");
-  }, [user, loading, router]);
+    if (!loading && user && me) router.replace(homePath(me));
+  }, [user, loading, me, router]);
 
   // Surface errors from a redirect-based Google sign-in (used when popups are blocked).
   useEffect(() => {
@@ -40,6 +44,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (mode === "signup" && !role) {
+      setError("Choose whether you're joining as a student or a teacher.");
+      return;
+    }
     if (mode === "signup" && password.length < 8) {
       setError("Please use at least 8 characters for your password.");
       return;
@@ -47,13 +55,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setBusy(true);
     try {
       if (mode === "signup") {
+        setPendingRole(role); // applied by AuthProvider as soon as the account exists
         const cred = await createUserWithEmailAndPassword(clientAuth(), email.trim(), password);
         if (name.trim()) await updateProfile(cred.user, { displayName: name.trim() });
       } else {
         await signInWithEmailAndPassword(clientAuth(), email.trim(), password);
       }
-      router.replace("/dashboard");
+      // Navigation happens in the effect above once the account (and role) has loaded.
     } catch (err) {
+      setPendingRole(null);
       setError(authErrorMessage(err));
     } finally {
       setBusy(false);
@@ -62,11 +72,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   async function onGoogle() {
     setError(null);
+    if (mode === "signup" && !role) {
+      setError("Choose whether you're joining as a student or a teacher.");
+      return;
+    }
     setBusy(true);
+    if (mode === "signup") setPendingRole(role);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(clientAuth(), provider);
-      router.replace("/dashboard");
     } catch (err) {
       const code = (err as { code?: string }).code;
       if (code === "auth/popup-blocked") {
@@ -125,7 +139,40 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           {isSignup ? "Sign up to find mentors and ask the programme assistant." : "Sign in to continue to your dashboard."}
         </p>
 
-        <button onClick={onGoogle} className="btn-secondary mt-7 w-full py-3" disabled={busy}>
+        {isSignup && (
+          <fieldset className="mt-7">
+            <legend className="label">I&apos;m joining as</legend>
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  { value: "student", title: "Student", hint: "Find a mentor", icon: GraduationCap },
+                  { value: "teacher", title: "Teacher", hint: "Mentor students", icon: Presentation },
+                ] as const
+              ).map(({ value, title, hint, icon: Icon }) => (
+                <label
+                  key={value}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${
+                    role === value ? "border-accent bg-accent-soft" : "border-line hover:bg-surface-2"
+                  }`}
+                >
+                  <input type="radio" name="role" value={value} checked={role === value} onChange={() => setRole(value)} className="sr-only" />
+                  <span className={`grid h-9 w-9 place-items-center rounded-lg ${role === value ? "brand-gradient text-white" : "bg-surface-2 text-muted"}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-fg">{title}</span>
+                    <span className="block text-xs text-muted">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {role === "teacher" && (
+              <p className="mt-2 text-xs text-subtle">Teacher accounts are reviewed by an admin before appearing in matches.</p>
+            )}
+          </fieldset>
+        )}
+
+        <button onClick={onGoogle} className={`btn-secondary w-full py-3 ${isSignup ? "mt-5" : "mt-7"}`} disabled={busy}>
           <GoogleIcon /> Continue with Google
         </button>
 
@@ -151,7 +198,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </div>
           </div>
           <div>
-            <label className="label" htmlFor="password">Password</label>
+            <div className="flex items-center justify-between">
+              <label className="label" htmlFor="password">Password</label>
+              {!isSignup && (
+                <Link href="/forgot-password" className="mb-1.5 text-xs font-medium text-accent-ink hover:underline">
+                  Forgot password?
+                </Link>
+              )}
+            </div>
             <div className="relative">
               <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
               <input

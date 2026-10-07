@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { doc, getDoc, onSnapshot, collection, serverTimestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
 import { MatchCard } from "@/components/MatchCard";
+import { RequestMentorDialog } from "@/components/RequestMentorDialog";
 import { ScoringExplainer } from "@/components/ScoringExplainer";
-import { Briefcase, CalendarClock, ChevronDown, Globe, Languages, Sparkles, Star, Users, Video, type LucideIcon } from "lucide-react";
+import { Briefcase, CalendarClock, ChevronDown, Globe, Languages, Pencil, RotateCw, Sparkles, Star, Users, Video, type LucideIcon } from "lucide-react";
 import { Avatar, EmptyState, ErrorBanner, PageHeader, Skeleton, Spinner } from "@/components/ui";
 import { clientDb } from "@/lib/firebase/client";
 import { formatTz, SLOT_LABELS, type MatchResponse, type MatchResult, type MenteeProfile, type MenteesResponse } from "@/lib/types";
 
 export default function MatchPage() {
-  const { user, api } = useAuth();
+  const { user, api, me } = useAuth();
+  // Admins pick any student (Dataset A); students always see matches for their own profile.
+  const isAdmin = me?.user.role === "admin";
+  const autoRan = useRef(false);
   const [mentees, setMentees] = useState<MenteeProfile[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
@@ -20,10 +25,13 @@ export default function MatchPage() {
   const [matchError, setMatchError] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [requestFor, setRequestFor] = useState<MatchResult | null>(null);
+  const [requestNotice, setRequestNotice] = useState<string | null>(null);
 
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!isAdmin) return;
     let cancelled = false;
     api<MenteesResponse>("/api/mentees")
       .then((res) => !cancelled && setMentees(res.mentees))
@@ -31,23 +39,23 @@ export default function MatchPage() {
     return () => {
       cancelled = true;
     };
-  }, [api, reloadKey]);
+  }, [api, reloadKey, isAdmin]);
 
   const retryMentees = () => {
     setListError(null);
     setReloadKey((k) => k + 1);
   };
 
-  // Restore the last selected mentee from Firestore preferences.
+  // Restore the last selected mentee from Firestore preferences (admin picker).
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isAdmin) return;
     getDoc(doc(clientDb(), `users/${user.uid}/preferences/settings`))
       .then((snap) => {
         const id = snap.data()?.lastMenteeId;
         if (typeof id === "string") setSelectedId((cur) => cur || id);
       })
       .catch(() => {});
-  }, [user]);
+  }, [user, isAdmin]);
 
   // Live set of saved mentor ids (Firestore).
   useEffect(() => {
@@ -60,13 +68,13 @@ export default function MatchPage() {
   }, [user]);
 
   async function findMatches(menteeId = selectedId) {
-    if (!menteeId) return;
+    if (isAdmin && !menteeId) return;
     setMatching(true);
     setMatchError(null);
     try {
-      const res = await api<MatchResponse>(`/api/match?menteeId=${encodeURIComponent(menteeId)}`);
+      const res = await api<MatchResponse>(isAdmin ? `/api/match?menteeId=${encodeURIComponent(menteeId)}` : "/api/match");
       setMatch(res);
-      if (user) {
+      if (user && isAdmin) {
         setDoc(
           doc(clientDb(), `users/${user.uid}/preferences/settings`),
           { lastMenteeId: menteeId, updatedAt: serverTimestamp() },
@@ -105,21 +113,33 @@ export default function MatchPage() {
     }
   }
 
-  const selected = mentees?.find((m) => m.id === selectedId) ?? null;
+  // Students: load their own matches once on arrival.
+  useEffect(() => {
+    if (!me || isAdmin || autoRan.current) return;
+    autoRan.current = true;
+    findMatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, isAdmin]);
+
+  const selected = isAdmin ? (mentees?.find((m) => m.id === selectedId) ?? null) : ((me?.profile as MenteeProfile | null) ?? null);
 
   return (
     <div>
       <PageHeader
         icon={Sparkles}
-        title="Find a mentor"
-        subtitle="Choose a mentee profile (Dataset A) to rank all 30 mentors (Dataset B) with a transparent score."
+        title={isAdmin ? "Run matching" : "Your mentor matches"}
+        subtitle={
+          isAdmin
+            ? "Choose any student (Dataset A) to rank all active teachers (Dataset B) with a transparent score."
+            : "Teachers ranked for your profile with a transparent score. Update your profile to change the results."
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           <div className="card">
-            <label htmlFor="mentee" className="label">Mentee profile</label>
-            {listError ? (
+            {isAdmin ? <label htmlFor="mentee" className="label">Student</label> : <p className="eyebrow mb-3">Matching on your profile</p>}
+            {!isAdmin ? null : listError ? (
               <ErrorBanner message={listError} onRetry={retryMentees} />
             ) : !mentees ? (
               <Skeleton className="h-11" />
@@ -189,16 +209,32 @@ export default function MatchPage() {
               </div>
             )}
 
-            <button className="btn-primary mt-5 w-full py-3" disabled={!selectedId || matching} onClick={() => findMatches()}>
-              {matching ? <Spinner /> : <Sparkles className="h-4 w-4" />}
-              {matching ? "Ranking mentors…" : "Find matches"}
-            </button>
+            {isAdmin ? (
+              <button className="btn-primary mt-5 w-full py-3" disabled={!selectedId || matching} onClick={() => findMatches()}>
+                {matching ? <Spinner /> : <Sparkles className="h-4 w-4" />}
+                {matching ? "Ranking mentors…" : "Find matches"}
+              </button>
+            ) : (
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <Link href="/profile" className="btn-secondary">
+                  <Pencil className="h-4 w-4" /> Edit profile
+                </Link>
+                <button className="btn-primary" disabled={matching} onClick={() => findMatches()}>
+                  {matching ? <Spinner /> : <RotateCw className="h-4 w-4" />} Refresh
+                </button>
+              </div>
+            )}
           </div>
           <ScoringExplainer />
         </aside>
 
         <section className="space-y-4">
           {saveError && <ErrorBanner message={saveError} />}
+          {requestNotice && (
+            <div className="rounded-2xl border border-success/20 bg-success-soft p-4 text-sm text-success">
+              {requestNotice} <Link href="/mentorship" className="font-medium underline">View your requests</Link>
+            </div>
+          )}
           {matchError && <ErrorBanner message={matchError} onRetry={() => findMatches()} />}
           {matching ? (
             Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-52" />)
@@ -206,28 +242,49 @@ export default function MatchPage() {
             <>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm text-muted">
-                  Top {match.results.length} of {match.candidatesConsidered} mentors for{" "}
-                  <span className="font-semibold text-fg">{match.mentee.name}</span>
+                  Top {match.results.length} of {match.candidatesConsidered} active teachers for{" "}
+                  <span className="font-semibold text-fg">{isAdmin ? match.mentee.name : "you"}</span>
                 </p>
                 {!match.historySaved && <span className="text-xs text-warn">Couldn&apos;t record this in your history</span>}
               </div>
               {match.results.length === 0 ? (
-                <EmptyState icon={Users} title="No mentors available">The mentor list is empty. Run the seed script.</EmptyState>
+                <EmptyState icon={Users} title="No teachers available yet">No active teachers with complete profiles. An admin may need to approve new teachers.</EmptyState>
               ) : (
                 match.results.map((r, i) => (
-                  <MatchCard key={r.mentorId} rank={i + 1} result={r} saved={savedIds.has(r.mentorId)} onToggleSave={() => toggleSave(r)} />
+                  <MatchCard
+                    key={r.mentorId}
+                    rank={i + 1}
+                    result={r}
+                    saved={savedIds.has(r.mentorId)}
+                    onToggleSave={isAdmin ? undefined : () => toggleSave(r)}
+                    onRequest={!isAdmin && match.mentorshipRequests ? () => setRequestFor(r) : undefined}
+                  />
                 ))
               )}
             </>
           ) : (
             !matchError && (
               <EmptyState icon={Sparkles} title="Your ranked matches will appear here">
-                Pick a mentee profile and press “Find matches” to rank all mentors with reasons for each.
+                {isAdmin ? "Pick a student and press “Find matches” to rank all teachers with reasons for each." : "Loading your matches…"}
               </EmptyState>
             )
           )}
         </section>
       </div>
+      <RequestMentorDialog
+        open={!!requestFor}
+        mentorName={requestFor?.mentorName ?? ""}
+        onCancel={() => setRequestFor(null)}
+        onSend={async (message) => {
+          await api("/api/mentorships", {
+            method: "POST",
+            body: JSON.stringify({ mentorId: requestFor!.mentorId, ...(message ? { message } : {}) }),
+          });
+          setRequestNotice(`Request sent to ${requestFor!.mentorName}. They have 7 days to respond.`);
+          setRequestFor(null);
+          await findMatches();
+        }}
+      />
     </div>
   );
 }

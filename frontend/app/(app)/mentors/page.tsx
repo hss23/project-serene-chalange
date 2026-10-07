@@ -51,8 +51,8 @@ export default function MentorsPage() {
     <div>
       <PageHeader
         icon={Users}
-        title="Mentors"
-        subtitle="Dataset B, loaded from Supabase Postgres (mentors joined with mentor_skills and skills)."
+        title="Teachers"
+        subtitle="Dataset B: active teachers (mentors), loaded from Supabase Postgres (mentors joined with mentor_skills and skills)."
         action={
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
@@ -68,7 +68,7 @@ export default function MentorsPage() {
       />
       {mentors && visible && (
         <p className="-mt-4 mb-5 text-sm text-muted">
-          Showing {visible.length} of {mentors.length} mentors
+          Showing {visible.length} of {mentors.length} teachers
         </p>
       )}
       {error ? (
@@ -78,7 +78,7 @@ export default function MentorsPage() {
           {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-64" />)}
         </div>
       ) : visible.length === 0 ? (
-        <EmptyState icon={Search} title="No mentors match that filter">Try a skill like “React” or a city.</EmptyState>
+        <EmptyState icon={Search} title="No teachers match that filter">Try a skill like “React” or a city.</EmptyState>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((m) => (

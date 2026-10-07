@@ -101,6 +101,12 @@ describe("server-only collections and validation", () => {
     await assertFails(setDoc(doc(db, "users/alice/savedMatches/mentor-01"), { ...saved(), isAdmin: true }));
   });
 
+  it("denies all client access to the admin audit log", async () => {
+    const db = env.authenticatedContext("alice").firestore();
+    await assertFails(getDocs(collection(db, "auditLog")));
+    await assertFails(setDoc(doc(db, "auditLog/x"), { action: "user_delete" }));
+  });
+
   it("rejects preferences documents other than settings", async () => {
     const db = env.authenticatedContext("alice").firestore();
     await assertFails(setDoc(doc(db, "users/alice/preferences/other"), { lastMenteeId: "mentee-01" }));
